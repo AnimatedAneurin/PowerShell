@@ -1,14 +1,21 @@
-## VLC UNINSTALL ##
-
-#Create own log system and find VLC process ID and kill it
+<#
+.SYNOPSIS
+    VLC Uninstall.
+.DESCRIPTION
+    A script that uninstalls VLC or with the right modifications an application of your choosing, that also checks to see if the script is being ran as an Administrator, Generates logs and has it's own error code system.
+.NOTES
+    Name: VLC Uninstall
+    Version: 5.0
+    Author: Aneurin Weale - DLM
+    Date Created (This incarnation, anyway): 28/06/2022
+    Last Updated: 16/08/2022
+#>
 
 ## SCRIPT START ##
 
-#Start-Transcript -Path C:\DLM\uninstallVLC.log -Append
-
 ## REGION LOGGING SYSTEM ##
-Function LogWrite {
-    #Function to create a log file in the current directory
+Function LogWrite { #This function allows us to replace all 'Write-Host' commands to 'LogWrite' commands. This means instead of outputting text to the terminal, it'll output to a log file instead.
+    #Function to create a log file in the current directory.
     Param ([string]$logstring)
     Add-Content "C:\DLM\uninstallVLC.log" -value "$(Get-Date -UFormat %Y%m%d-%H:%M:%S) - $($logstring)"
     #20190717-12:07:40 - Example
@@ -16,8 +23,8 @@ Function LogWrite {
 #END REGION
 
 ## REGION ADMINISTRATOR CHECK ##
-$user = [Security.Principal.WindowsIdentity]::GetCurrent();
-$Role = (New-Object Security.Principal.WindowsPrincipal $user).IsInRole([Security.Principal.WindowsBuiltinRole]::Administrator)
+$user = [Security.Principal.WindowsIdentity]::GetCurrent(); #Grabs current PowerShell sessions user identity.
+$Role = (New-Object Security.Principal.WindowsPrincipal $user).IsInRole([Security.Principal.WindowsBuiltinRole]::Administrator) #Checks if current PowerShell session is an Admin.
 If ($Role -eq $TRUE) {
 
     LogWrite "Required Privilages Met."
@@ -35,21 +42,15 @@ $checkFilePath86 = "C:\Program Files (x86)\VideoLAN\VLC\uninstall.exe"
 
 $checkFilePath = "C:\Program Files\VideoLAN\VLC\uninstall.exe"
 
-#$Test = "C:\DLM\test.txt"
-
 $uninstallVLC86 = "C:\Program Files (x86)\VideoLAN\VLC\uninstall.exe"
 
 $uninstallVLC = "C:\Program Files\VideoLAN\VLC\uninstall.exe"
-
-#$VLCUninstall = "C:\Users\aneurin.weale\Downloads\vlc-3.0.17.4-win32.exe"
-
-#$VLCUninstall = "C:\WINDOWS\system32\Notepad.exe"
 
 $ErrorCode = 0
 ## END REGION ##
 
 ## FUNCTIONS ##
-Function 32BitVLC {
+Function 32BitVLC { #If VLC was detected under x86 directory, then the below will run.
 
     LogWrite "VLC Media Player Exists."
     LogWrite "Checking If VLC is Running..."
@@ -61,28 +62,19 @@ Function 32BitVLC {
 
     }
     LogWrite "Uninstalling VLC Media Player..."
-    #Start-Sleep -s 2
     Start-Process -FilePath $uninstallVLC86 -ArgumentList '/S' -Wait -NoNewWindow
-    #Start-Sleep -s 10
     If ((Test-Path -Path $checkFilePath86) -eq $TRUE) {
         LogWrite "Uninstall Failed."
         LogWrite "Error Code: 0x1a"
         $ErrorCode = $ErrorCode + 1
-        Start-Sleep -s 1
     }
     If ((Test-Path -Path $checkFilePath86) -eq $FALSE) {
         LogWrite "VLC Media Player Uninstalled."
-        Start-Sleep -s 1
     }
-    #Start-Process -FilePath $VLCUninstall
-    Start-Sleep -s 1
-    #LogWrite "VLC Media Player Uninstalled."
-    #LogWrite "Exiting Script..."
-    #Start-Process -FilePath $VLCUninstall -ArgumentList '/L=1033 /S'
 
 }
 
-Function 64BitVLC {
+Function 64BitVLC { #If VLC was detected under x64 directory, then the below will run.
 
     LogWrite "VLC Media Player Exists."
     LogWrite "Checking If VLC is Running..."
@@ -94,44 +86,33 @@ Function 64BitVLC {
 
     }
     LogWrite "Uninstalling VLC Media Player..."
-    Start-Sleep -s 2
     Start-Process -FilePath $uninstallVLC -ArgumentList '/S' -Wait -NoNewWindow
-    Start-Sleep -s 10
     If ((Test-Path -Path $checkFilePath) -eq $TRUE) {
         LogWrite "Uninstall Failed."
         LogWrite "Error Code: 0x01b"
         $ErrorCode = $ErrorCode + 1
-        Start-Sleep -s 1
     }
     If ((Test-Path -Path $checkFilePath) -eq $FALSE) {
         LogWrite "VLC Media Player Uninstalled."
-        Start-Sleep -s 1
     }
-    #Start-Process -FilePath $uninstallVLC
-    Start-Sleep -s 1
-    #LogWrite "VLC Media Player Uninstalled."
-    #LogWrite "Exiting Script..."
-    #Start-Process -FilePath $VLCUninstall -ArgumentList '/L=1033 /S'
 
 }
 ## END REGION ##
 
 ## IF STATEMENTS ##
-If (((Test-Path -Path $checkFilePath86) -eq $FALSE) -and ((Test-Path -Path $checkFilePath) -eq $FALSE)) {
+If (((Test-Path -Path $checkFilePath86) -eq $FALSE) -and ((Test-Path -Path $checkFilePath) -eq $FALSE)) { #If VLC is not installed in either location, then exit/end script.
     LogWrite "VLC Media Player Is Not Installed On The System."
     LogWrite "Exiting Script..."
     Exit
 }
 
-If ((Test-Path -Path $checkFilePath86) -eq $TRUE) {
+If ((Test-Path -Path $checkFilePath86) -eq $TRUE) { #If VLC exists in x86 directory, then execute 32BitVLC Function.
     LogWrite "Checking If VLC Media Player Is installed under 'Program Files (x86)'..."
-    Start-Sleep -s 1
     32BitVLC
 }
 
-If ((Test-Path -Path $checkFilePath) -eq $TRUE) {
+If ((Test-Path -Path $checkFilePath) -eq $TRUE) { #If VLC exists in x64 directory, then execute 64BitVLC Function.
     LogWrite "Checking If VLC Media Player Is installed under 'Program Files'..."
-    Start-Sleep -s 1
     64BitVLC
 }
 
@@ -154,8 +135,5 @@ If ($ErrorCode -eq 2) {
 }
 ## END REGION ##
 Clear-Variable -name ErrorCode
-#$ErrorCode = 0
-
-#Stop-Transcript
 
 ## SCRIPT END ##
