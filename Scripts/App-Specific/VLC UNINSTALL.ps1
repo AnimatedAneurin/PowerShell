@@ -5,10 +5,11 @@
     A script that uninstalls VLC or with the right modifications an application of your choosing, that also checks to see if the script is being ran as an Administrator, Generates logs and has it's own error code system.
 .NOTES
     Name: VLC Uninstall
-    Version: 7.0
+    Version: 8.0
     Author: Aneurin Weale - DLM
     Date Created: 28/06/2022
-    Last Updated: 22/08/2022
+    Last Updated: 25/08/2022
+    URL: https://github.com/AnimatedAneurin/PowerShell/blob/main/Scripts/App-Specific/VLC%20UNINSTALL.ps1
 #>
 
 ## SCRIPT START ##
