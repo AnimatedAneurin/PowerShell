@@ -1,4 +1,4 @@
-# TestNet-Connection - SoftEther
+# Test-NetConnection - SoftEther
 
 ## PRE-REQUISITES
 
