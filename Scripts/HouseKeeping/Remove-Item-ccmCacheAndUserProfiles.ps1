@@ -1,4 +1,22 @@
-## HOUSEKEEPING ##
+<#
+.SYNOPSIS
+    Remove-Item-ccmCacheAndUserProfiles.
+.DESCRIPTION
+    A script that deletes all ccmCache and User Profiles that haven't been modified over 60 days. Typically used for a Corpoarte environment as ccmCache is only ever generated when Software Center is installed.
+.PARAMETER WhatIf
+    Runs script as a test. Basically does not delete anything but will display what will get deleted, best used before actually using the script.
+.EXAMPLE
+    "...\Remove-Item-ccmCacheAndUserProfiles.ps1"
+.EXAMPLE
+    "...\Remove-Item-ccmCacheAndUserProfiles.ps1" -WhatIf
+.NOTES
+    Name: Remove-Item-ccmCacheAndUserProfiles
+    Version: 2.0
+    Author: Aneurin Weale - DLM
+    Date Created: 15/08/2022
+    Last Updated: 02/09/2022
+    URL: https://github.com/AnimatedAneurin/PowerShell/blob/main/Scripts/HouseKeeping/Remove-Item-ccmCacheAndUserProfiles.ps1
+#>
 
 ## START SCRIPT ##
 
@@ -15,7 +33,7 @@ $ccmCache = "C:\Windows\ccmCache\"
 $Users = "C:\Users"
 
 $ccmCacheCleanup = Get-ChildItem C:\Windows\ccmCache\ -Include *.* -Recurse | Remove-Item
-#Get-ChildItem –Path "C:\Users" -Recurse | Where-Object {($_.LastWriteTime -lt (Get-Date).AddDays(-30))} | Remove-Item
+#Get-ChildItem -Path "C:\Users" -Recurse | Where-Object {($_.LastWriteTime -lt (Get-Date).AddDays(-30))} | Remove-Item
 
 #$TestccmCacheCleanup = Get-ChildItem C:\Windows\ccmCache\ -Include *.* -Recurse
 
