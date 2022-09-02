@@ -9,7 +9,7 @@
     Author: Aneurin Weale - DLM
     Date Created: 02/09/2022
     Last Updated: 02/09/2022
-    URL: https://github.com/AnimatedAneurin/PowerShell/tree/main/Scripts/VPN/SoftEther/Test%20Connection
+    URL: https://github.com/AnimatedAneurin/PowerShell/tree/main/Scripts/VPN/SoftEther/Test-NetConnection
 #>
 
 ## SCRIPT START ##
