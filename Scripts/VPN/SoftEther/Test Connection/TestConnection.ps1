@@ -5,20 +5,24 @@
     A script that Tests the Network Connection between the client and the VPN Server. If Test-NetConnection is Successful, it'll then attempt to connect to the server.
 .NOTES
     Name: Test-NetConnection - SoftEther
-    Version: 1.0
+    Version: 2.0
     Author: Aneurin Weale - DLM
     Date Created: 02/09/2022
     Last Updated: 02/09/2022
-    URL: 
+    URL: https://github.com/AnimatedAneurin/PowerShell/tree/main/Scripts/VPN/SoftEther/Test%20Connection
 #>
 
 ## SCRIPT START ##
 
 ## REGION VARIABLES ##
-$ping = Test-NetConnection -ComputerName "wealesit.duckdns.org"
+$computerName = "PUBLIC IP ADDRESS HERE" # Here you can put a Public IP Address or a DDNS. I went down the path of DDNS and ended up using the DuckDNS service, by doing this I assigned a specific device a DDNS and not my entire network. That way I know I'm testing the right device.
+$ping = Test-NetConnection -ComputerName $computerName
 $vpnName = "VPN Client Adapter - VPN";
 $vpn = Get-NetAdapter -InterfaceDescription $vpnName;
-$WIT = "C:\Program Files\SoftEther VPN Client\WIT\WealesIT.lnk"
+$shortcutPath = "C:\Program Files\SoftEther VPN Client\WIT\"
+$shortcut = "WealesIT.lnk"
+$vpnConnectionName = "WealesIT!"
+$WIT = Join-Path -Path $shortcutPath -ChildPath $shortcut
 #$ping.PingSucceeded
 $Result = "Unknown Error"
 ## END REGION ##
@@ -28,8 +32,8 @@ start-sleep -Seconds 3
 
 if ($ping.PingSucceeded -eq "true") {
 
-    $Result = "Connected to WealesIT!"
-    #Write-Host "WealesIT is Contactable"
+    $Result = "Connected to", $vpnConnectionName
+    #Write-Host "WealesIT is Contactable" # This is to test if the Public IP Address/DDNS is active, or in my case, to see if the device that the VPN Server is hosted on is powered on and connected to the internet.
     if($vpn.Status -eq "Disconnected"){
         Write-Host "Response found from WealesIT Network..."
         Write-Host "Attempting to Establish a Connection..."
