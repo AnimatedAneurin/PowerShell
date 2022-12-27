@@ -1,0 +1,3 @@
+Target - \\cpdipimg01s\Civica\CMLiveCurr\XRunApp.exe http://dips-w2live/classes/workers/wlogin.xml
+
+Start in - \\cpdipimg01s\Civica\CMLiveCurr
