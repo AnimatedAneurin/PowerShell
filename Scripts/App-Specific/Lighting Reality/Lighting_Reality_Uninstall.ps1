@@ -12,7 +12,7 @@
     Author: Aneurin Weale - DLM
     Date Created: 25/05/2023
     Last Updated: 25/05/2023
-    URL: https://ps-git.groupinfra.com/DLM/DLM-General-Scripts/src/branch/master/Scripts/App-Specific/Lighting%20Reality/Lighting_Reality_Uninstall.ps1
+    URL: https://github.com/AnimatedAneurin/PowerShell/blob/PowerShell/Scripts/App-Specific/Lighting%20Reality/Lighting_Reality_Uninstall.ps1
 #>
 
 ## SCRIPT START ##
