@@ -9,7 +9,7 @@
     Author: Aneurin Weale - DLM
     Date Created: 21/12/2023
     Last Updated: 21/12/2023
-    URL: 
+    URL: https://github.com/AnimatedAneurin/PowerShell/blob/PowerShell/Scripts/E-Mail/E-Mail%20-%20O365.ps1
 #>
 
 # SMTP server settings
