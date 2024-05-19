@@ -2,12 +2,26 @@
 .SYNOPSIS
     Test-NetConnection - SoftEther.
 .DESCRIPTION
-    A script that Tests the Network Connection between the client and the VPN Server. If Test-NetConnection is Successful, it'll then attempt to connect to the server.
-.PARAMETER computerName
-    Here you can put a Public IP Address or a DDNS. In Summary, this is the VPN Server you're trying to connect to.
+    This script automates the SoftEther VPN Client to connect to the SoftEther VPN Server.
+.PARAMETER vpnServerName
+    Define the Public IP Address or a DDNS of your SoftEther VPN Server.
+.PARAMETER port
+    This is the port that your SoftEther VPN Server listens on.
+.PARAMETER adapterDescription
+    This is the SoftEther Adapter on the EUD that connects to your SoftEther VPN Server. Define the network adapter description to look for.
+.PARAMETER shortcutPath
+    The directory of which your VPN Shortcut.lnk resides on the EUD.
+.PARAMETER shortcut
+    This is your shortcut.lnk. This will be combined with the shortcutPath Variable to create the full path of the shortcut.lnk.
+.PARAMETER virtualHubName
+    This is the name of your Virtual Hub within your SoftEther Server.
+.PARAMETER subnet
+    This is the subnet you're checking against the Network Adapter on the EUD.
+.EXAMPLE
+	.\Test-NetConnection.ps1 -vpnServerName [DDNS/PUBLIC IP OF VPN SERVER] -port 443 -adapterDescription [VPN ADAPTER] -shortcutPath "C:\VPN\" -shortcut "VPN.lnk" -virtualHubName [VIRTUAL HUB] -subnet "192.168.1.*"
 .NOTES
     Name: Test-NetConnection - SoftEther
-    Version: 3.1
+    Version: 4.0
     Author: Aneurin Weale - DLM
     Date Created: 02/09/2022
     Last Updated: 19/05/2024
@@ -15,111 +29,99 @@
 #>
 
 Param (
-	[Parameter(Mandatory=$True)] [String]$computerName,
+	[Parameter(Mandatory=$True)] [String]$vpnServerName,
 	[Parameter(Mandatory=$True)] [String]$port,
-    [Parameter(Mandatory=$True)] [String]$vpnName,
+    [Parameter(Mandatory=$True)] [String]$adapterDescription,
     [Parameter(Mandatory=$True)] [String]$shortcutPath,
     [Parameter(Mandatory=$True)] [String]$shortcut,
-    [Parameter(Mandatory=$True)] [String]$vpnConnectionName,
-    [Parameter(Mandatory=$True)] [String]$IPRegularExpression,
-    [Parameter(Mandatory=$True)] [String]$IP
+    [Parameter(Mandatory=$True)] [String]$virtualHubName,
+    [Parameter(Mandatory=$True)] [String]$subnet
 )
 
 ## DETECTION METHOD - SCRIPT START ##
 
 ## REGION VARIABLES ##
-$vpnConnectionName = "WealesIT"
-$EUD = hostname
+$EUD = $env:computername
 
 # START NETWORK SCAN
 #This section confirms if device is already connected to the CORP Network. If connected, terminate script. If not connected, start remediation script.
 Write-host "Checking Current Network Configuration"
-$NetworkConfig = & "C:\Windows\System32\ipconfig.exe" /all
-$IPv4Address = $null
 
-foreach ($line in $NetworkConfig) {
-    if ($line -match "IPv4 Address.*: (10\.0\.0\.\d+)") { # Using regular expression to match lines that contain the IPv4 address. The pattern (\d+\.\d+\.\d+\.\d+) matches any IPv4 address format.
-        $IPv4Address = $matches[1]
-        break
+# Get the network adapter based on the description
+$NetworkAdapter = Get-NetAdapter -InterfaceDescription "*$adapterDescription*"
+
+if ($NetworkAdapter) {
+    # Get the IPv4 address associated with this adapter
+    $IPv4Address = Get-NetIPAddress -InterfaceIndex $NetworkAdapter.IfIndex | Where-Object { $_.AddressFamily -eq 'IPv4' -and $_.IPAddress -like $subnet } | Select-Object -ExpandProperty IPAddress -First 1
+
+    if ($IPv4Address) {
+        Write-host "IP Subnet Matching",$virtualHubName,"VPN Network Detected."
+        Write-Host "Detected IP Address on",$EUD,"=",$IPv4Address
+        Write-host "Already Connected to",$virtualHubName,"Network."
+        Write-Host "Exiting Script..."
+        EXIT
+    } else {
+        Write-Host $EUD,"Not Connected to",$virtualHubName,"Network."
     }
-}
-
-IF ($IPv4Address -eq "XXX.XXX.XXX.") { # Here you want to put a subnet that your VPN uses (Example: 192.168.1.). Detecting this IP doesn't nessassarily mean it's connected to your VPN Network, but it does mean it's found a subnet that's similar. You could go one step further and add a Test-NetConnection step to see if it can contact the DC, but for my purpose I have chosen to avoid this.
-    Write-host "IP Subnet Matching",$vpnConnectionName,"VPN Network Detected."
-    Write-Host "Detected IP Address on",$EUD,"=",$IPv4Address
-    Write-host "Already Connected to",$vpnConnectionName,"Network."
-    Write-Host "Exiting Script..."
-    #$IPv4Address # Used for troubleshooting. Remove Comment '#' if you wish to know what IP has been stored.
-    EXIT
-} ELSE {
-    Write-Host $EUD,"Not Connected to",$vpnConnectionName,"Network."
+} else {
+    Write-Host "Specified network adapter not found."
 }
 
 ## SCRIPT END ##
 
 ## REMEDIATION METHOD - SCRIPT START ##
 
-## REGION - VARIABLES ##
-$computerName = "PUBLIC IP ADDRESS HERE" # Here you can put a Public IP Address or a DDNS. I went down the path of DDNS and ended up using the DuckDNS service, by doing this I assigned a specific device a DDNS and not my entire network. That way I know I'm testing the right device.
-$port = "[PORT NUMBER]"
-$vpnName = "VPN Client Adapter - VPN"; # Name of VPN Adapter on End User Device.
-$vpn = Get-NetAdapter -InterfaceDescription $vpnName; # Find VPN Adapter with the name of $vpnName on End User Device
-$shortcutPath = "C:\Program Files\SoftEther VPN Client\WIT\" # Directory of VPN Shortcut
-$shortcut = "[SHORTCUT].lnk" # File name of VPN Shortcut
-$vpnConnectionName = "[VPN SERVER NAME]!" # Name of your VPN Server.
-$WIT = Join-Path -Path $shortcutPath -ChildPath $shortcut # Combine $vpnName and $vpn together to form a single variable
+## REGION VARIABLES ##
+$NetworkAdapter = Get-NetAdapter -InterfaceDescription "*$adapterDescription*"
+$WIT = Join-Path -Path $shortcutPath -ChildPath $shortcut
 
-#$ping.PingSucceeded
-$Result = "Unknown Error" # Used as troubleshooting. Will confirm if something went wrong.
+$Result = "Unknown Error"
 ## END REGION ##
 
-## REGION - IF STATEMENTS ##
+## REGION IF STATEMENTS ##
 
-$ping = Test-NetConnection -ComputerName $computerName -port $port
+$ping = Test-NetConnection -ComputerName $vpnServerName -port $port
 
 start-sleep -Seconds 3
 
 if ($ping.TcpTestSucceeded -eq "true") {
 
-    $Result = $vpnConnectionName + " is contactable!"
-    #Write-Host "[VPN SERVER] is Contactable" # This is to test if the Public IP Address/DDNS is active, or in my case, to see if the device that the VPN Server is hosted on is powered on and connected to the internet.
-    if($vpn.Status -eq "Disconnected"){
-        Write-Host "Response found from",$vpnConnectionName,"Network..."
+    $Result = $virtualHubName + " is contactable!"
+    #Write-Host $virtualHubName, " is contactable!" # This is to test if the Public IP Address/DDNS is active, or in my case, to see if the device that the VPN Server is hosted on is powered on and connected to the internet.
+    if($NetworkAdapter.Status -eq "Disconnected"){
+        Write-Host "Response found from",$virtualHubName,"Network..."
         Write-Host "Attempting to Establish a Connection..."
         start-process $WIT
-        start-sleep -Seconds 5
+        start-sleep -Seconds 5 # This pause is needed. If attempting to detect the IP too early before SoftEther Client can make a connection, the script will not work as expected.
         Write-host "Checking Current Network Configuration"
-        $NetworkConfig = & "C:\Windows\System32\ipconfig.exe" /all
-        $IPv4Address = $null
-        foreach ($line in $NetworkConfig) {
-            if ($line -match "IPv4 Address.*: (10\.0\.0\.\d+)") { # Using regular expression to match lines that contain the IPv4 address. The pattern (\d+\.\d+\.\d+\.\d+) matches any IPv4 address format.
-                $IPv4Address = $matches[1]
-                break
+        if ($NetworkAdapter) {
+            # Get the IPv4 address associated with this adapter
+            $IPv4Address = Get-NetIPAddress -InterfaceIndex $NetworkAdapter.IfIndex | Where-Object { $_.AddressFamily -eq 'IPv4' -and $_.IPAddress -like $subnet } | Select-Object -ExpandProperty IPAddress -First 1
+        
+            if ($IPv4Address) {
+                Write-host "IP Subnet Matching",$virtualHubName,"VPN Network Detected."
+                Write-Host "Detected IP Address on",$EUD,"=",$IPv4Address
+                Write-host "Already Connected to",$virtualHubName,"Network."
+                Write-Host "Exiting Script..."
+                EXIT
+            } else {
+                Write-Host $EUD,"Not Connected to",$virtualHubName,"Network."
             }
-        }
-        IF ($IPv4Address -like "10.0.0.*") { # Here you want to put a subnet that your VPN uses (Example: 192.168.1.). Detecting this IP doesn't nessassarily mean it's connected to your VPN Network, but it does mean it's found a subnet that's similar. You could go one step further and add a Test-NetConnection step to see if it can contact the DC, but for my purpose I have chosen to avoid this.
-            Write-host "CORP Subnet Found."
-            Write-host "Already connected to CORP Network."
-            Write-Host "Exiting Script..."
-            #$IPv4Address # Used for troubleshooting. Remove Comment '#' if you wish to know what IP has been stored.
-            EXIT
-        } ELSE {
-            Write-Host "Not Connected to CORP Network."
+        } else {
+            Write-Host "Specified network adapter not found."
         }
     }
 }
-#Write-Host "1st if statement complete"
+
 Elseif ($ping.TcpTestSucceeded -ne "true") {
     Write-Host "Attempting to Establish a Connection..."
     start-sleep -Seconds 3
-    $Result = "Unable to Communicate with",$vpnConnectionName,"Network..."
-    #Write-Host "[VPN SERVER] is Not Contactable"
+    $Result = "Unable to Communicate with",$virtualHubName,"Network..."
+    #Write-Host $virtualHubName,"is Not Contactable"
 
 }
 Write-Host $Result
 Write-Host "Exiting Script..."
-#Write-Host "2nd if statement complete"
 ## END REGION ##
-#if (Test-Connection -TargetName Server01 -Quiet) { New-PSSession -ComputerName Server01 }
 
 ## SCRIPT END ##
