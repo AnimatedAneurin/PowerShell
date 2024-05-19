@@ -27,7 +27,7 @@
     Author: Aneurin Weale - DLM
     Date Created: 02/09/2022
     Last Updated: 19/05/2024
-    URL: https://github.com/AnimatedAneurin/PowerShell/tree/main/Scripts/VPN/SoftEther/Test-NetConnection
+    URL: https://github.com/AnimatedAneurin/PowerShell/blob/PowerShell/Scripts/VPN/SoftEther/SoftEther%20VPN%20Client%20-%20Auto%20Connect/SoftEther_VPN_Client_Auto_Connect.ps1
 #>
 
 Param (
