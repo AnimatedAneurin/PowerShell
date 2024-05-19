@@ -21,7 +21,7 @@
 	.\Test-NetConnection.ps1 -vpnServerName [DDNS/PUBLIC IP OF VPN SERVER] -port 443 -adapterDescription [VPN ADAPTER] -shortcutPath "C:\VPN" -shortcut "\VPN.lnk" -virtualHubName [VIRTUAL HUB] -subnet "192.168.1.*"
 .NOTES
     Name: Test-NetConnection - SoftEther
-    Version: 4.0
+    Version: 4.1
     Author: Aneurin Weale - DLM
     Date Created: 02/09/2022
     Last Updated: 19/05/2024
