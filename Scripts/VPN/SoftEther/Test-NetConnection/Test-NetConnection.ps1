@@ -18,7 +18,7 @@
 .PARAMETER subnet
     This is the subnet you're checking against the Network Adapter on the EUD.
 .EXAMPLE
-	.\Test-NetConnection.ps1 -vpnServerName [DDNS/PUBLIC IP OF VPN SERVER] -port 443 -adapterDescription [VPN ADAPTER] -shortcutPath "C:\VPN\" -shortcut "VPN.lnk" -virtualHubName [VIRTUAL HUB] -subnet "192.168.1.*"
+	.\Test-NetConnection.ps1 -vpnServerName [DDNS/PUBLIC IP OF VPN SERVER] -port 443 -adapterDescription [VPN ADAPTER] -shortcutPath "C:\VPN" -shortcut "\VPN.lnk" -virtualHubName [VIRTUAL HUB] -subnet "192.168.1.*"
 .NOTES
     Name: Test-NetConnection - SoftEther
     Version: 4.0
@@ -50,21 +50,29 @@ Write-host "Checking Current Network Configuration"
 # Get the network adapter based on the description
 $NetworkAdapter = Get-NetAdapter -InterfaceDescription "*$adapterDescription*"
 
-if ($NetworkAdapter) {
-    # Get the IPv4 address associated with this adapter
-    $IPv4Address = Get-NetIPAddress -InterfaceIndex $NetworkAdapter.IfIndex | Where-Object { $_.AddressFamily -eq 'IPv4' -and $_.IPAddress -like $subnet } | Select-Object -ExpandProperty IPAddress -First 1
+if(!($NetworkAdapter.Status -eq "Disconnected")){
+    if ($NetworkAdapter) {
+        # Get the IPv4 address associated with this adapter
+        $IPv4Address = Get-NetIPAddress -InterfaceIndex $NetworkAdapter.IfIndex | Where-Object { $_.AddressFamily -eq 'IPv4' -and $_.IPAddress -like $subnet } | Select-Object -ExpandProperty IPAddress -First 1
 
-    if ($IPv4Address) {
-        Write-host "IP Subnet Matching",$virtualHubName,"VPN Network Detected."
-        Write-Host "Detected IP Address on",$EUD,"=",$IPv4Address
-        Write-host "Already Connected to",$virtualHubName,"Network."
-        Write-Host "Exiting Script..."
-        EXIT
+        if ($IPv4Address) {
+            Write-host "IP Subnet Matching",$virtualHubName,"VPN Network Detected."
+            Write-Host "Detected IP Address on",$EUD,"=",$IPv4Address
+            Write-host "Already Connected to",$virtualHubName,"Network."
+            Write-Host "Exiting Script..."
+            EXIT
+        } else {
+            Write-Host $EUD,"Not Connected to",$virtualHubName,"Network."
+        }
     } else {
-        Write-Host $EUD,"Not Connected to",$virtualHubName,"Network."
+        Write-Host "Specified network adapter not found."
+        exit
     }
+} elseif ($NetworkAdapter.Status -eq "Disconnected") {
+    Write-Host $EUD,"Not Connected to",$virtualHubName,"Network."
 } else {
     Write-Host "Specified network adapter not found."
+    exit
 }
 
 ## SCRIPT END ##
@@ -78,7 +86,7 @@ $WIT = Join-Path -Path $shortcutPath -ChildPath $shortcut
 $Result = "Unknown Error"
 ## END REGION ##
 
-## REGION IF STATEMENTS ##
+## REGION IF STATEMENTS #
 
 $ping = Test-NetConnection -ComputerName $vpnServerName -port $port
 
@@ -94,21 +102,29 @@ if ($ping.TcpTestSucceeded -eq "true") {
         start-process $WIT
         start-sleep -Seconds 5 # This pause is needed. If attempting to detect the IP too early before SoftEther Client can make a connection, the script will not work as expected.
         Write-host "Checking Current Network Configuration"
-        if ($NetworkAdapter) {
-            # Get the IPv4 address associated with this adapter
-            $IPv4Address = Get-NetIPAddress -InterfaceIndex $NetworkAdapter.IfIndex | Where-Object { $_.AddressFamily -eq 'IPv4' -and $_.IPAddress -like $subnet } | Select-Object -ExpandProperty IPAddress -First 1
+        if(!($NetworkAdapter.Status -eq "Disconnected")){
+            if ($NetworkAdapter) {
+                # Get the IPv4 address associated with this adapter
+                $IPv4Address = Get-NetIPAddress -InterfaceIndex $NetworkAdapter.IfIndex | Where-Object { $_.AddressFamily -eq 'IPv4' -and $_.IPAddress -like $subnet } | Select-Object -ExpandProperty IPAddress -First 1
         
-            if ($IPv4Address) {
-                Write-host "IP Subnet Matching",$virtualHubName,"VPN Network Detected."
-                Write-Host "Detected IP Address on",$EUD,"=",$IPv4Address
-                Write-host "Already Connected to",$virtualHubName,"Network."
-                Write-Host "Exiting Script..."
-                EXIT
+                if ($IPv4Address) {
+                    Write-host "IP Subnet Matching",$virtualHubName,"VPN Network Detected."
+                    Write-Host "Detected IP Address on",$EUD,"=",$IPv4Address
+                    Write-host "Already Connected to",$virtualHubName,"Network."
+                    Write-Host "Exiting Script..."
+                    EXIT
+                } else {
+                    Write-Host $EUD,"Not Connected to",$virtualHubName,"Network."
+                }
             } else {
-                Write-Host $EUD,"Not Connected to",$virtualHubName,"Network."
+                Write-Host "Specified network adapter not found."
+                exit
             }
+        } elseif ($NetworkAdapter.Status -eq "Disconnected") {
+            Write-Host $EUD,"Not Connected to",$virtualHubName,"Network."
         } else {
             Write-Host "Specified network adapter not found."
+            exit
         }
     }
 }
