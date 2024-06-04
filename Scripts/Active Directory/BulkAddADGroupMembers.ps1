@@ -32,7 +32,6 @@ Param (
 )
 
 $ErrorActionPreference = "Continue"
-$VerbosePreference = "Continue"
 
 $ComputerList = Get-Content $ADComputers
 
@@ -40,7 +39,7 @@ foreach ($Computer in $ComputerList)
     {
         try {
             Add-AdGroupmember -Identity $SecurityGroupname  -Members (Get-ADComputer $computer)
-            Write-Verbose -Message "$Computer Added to AD Security Group: $SecurityGroupName" -Verbose
+            Write-Verbose -Message "$Computer Added to AD Security Group: $SecurityGroupName"
         }
         catch [Microsoft.ActiveDirectory.Management.ADIdentityNotFoundException] {
             Write-Warning "$Computer Not Found in AD. Asset was not Added to AD Group."
