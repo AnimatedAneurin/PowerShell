@@ -23,11 +23,8 @@
         Author: Aneurin Weale - VAR
         Date Created: 03/06/2024
         Last Updated: 03/06/2024
-        URL: 
+        URL: https://github.com/AnimatedAneurin/PowerShell/blob/PowerShell/Scripts/Active%20Directory/BulkAddADGroupMembers.ps1
 #>
-
-
-#ADD-ADGroupMember -identity DLM-GPO-Win10-PowerPolicy-CommunityNurses -members <SAMAccount name $>
 
 Param (
     [Parameter(Mandatory=$True)] [String]$ADComputers,
@@ -37,9 +34,6 @@ Param (
 $ErrorActionPreference = "Continue"
 $VerbosePreference = "Continue"
 
-#$SecurityGroupname = "W10_APPD_7-Zip_24.05_x64"
-
-#$ComputerList = Get-Content "C:\DLM\devices.txt"
 $ComputerList = Get-Content $ADComputers
 
 foreach ($Computer in $ComputerList)
