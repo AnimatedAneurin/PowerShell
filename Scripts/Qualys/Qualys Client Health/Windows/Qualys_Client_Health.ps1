@@ -46,7 +46,7 @@
         Author: Aneurin Weale - VAR
         Date Created: 24/06/2024
         Last Updated: 24/06/2024
-        URL: 
+        URL: https://github.com/AnimatedAneurin/PowerShell/blob/PowerShell/Scripts/Qualys/Qualys%20Client%20Health/Windows/Qualys_Client_Health.ps1
 #>
 
 Param (
