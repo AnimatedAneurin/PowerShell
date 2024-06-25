@@ -4,7 +4,7 @@
 
     .DESCRIPTION
         The Qualys Client Health Script is designed to maintain the Qualys Cloud Security Agent by 
-        making sure it's configured correctly, health, and kept up-to-date.
+        making sure it's configured correctly, healthy, and up-to-date.
 
     .PARAMETER config
         Specifies the .xml Config File Location. 
@@ -18,13 +18,19 @@
 
     .NOTES
         Name: Qualys_Client_Health.ps1
-        Version: 1.1
+        Version: 1.11
         Author: Aneurin Weale - VAR
         Date Created: 24/06/2024
-        Last Updated: 25/06/2024
+        Last Updated: 26/06/2024
         URL: https://github.com/AnimatedAneurin/PowerShell/blob/PowerShell/Scripts/Qualys/Qualys%20Client%20Health/Windows/Qualys_Client_Health.ps1
 #>
 
+<# To-Do:
+    1. Add Logging System.
+    2. Finish WhatIF System.
+#>
+
+## SCRIPT START ##
 ## PARAMETERS & XML CONFIG - START REGION ##
 Param (
     [Parameter(Mandatory=$True)] [String]$config,
@@ -81,178 +87,114 @@ if (-not (IsParameterBound 'whatIF')) {
 }
 ## PARAMETERS & XML CONFIG - END REGION ##
 
-function cleanup_programDataPath {
-    # Path to the registry key containing the products
-    $programDataPath = "$Env:ProgramData\Qualys\QualysAgent"
 
-    # Get all subkeys under the base registry path
-    If (Test-Path $programDataPath) {
-        Remove-Item $programDataPath
-        If (!(Test-Path $programDataPath)) {
-            Write-Host "cleanup_programDataPath successfull!"
-        } else {
-            Write-Host "cleanup_programDataPath Failed."
-        }
-    } Else {
-        write-host "$programDataPath does not exist."
-    }
-}
-
-function cleanup_regkeyHKCUInstallerProducts {
+## FUNCTIONS - START REGION ##
+function Clear_RegistryHKCUInstallerProducts {
     # Path to the registry key containing the products
     $regkeyHKCUInstallerProducts = "Registry::HKEY_CLASSES_ROOT\Installer\Products"
-
     # Get all subkeys under the base registry path
     $subKeys = Get-ChildItem -Path $regkeyHKCUInstallerProducts
-
     # Iterate through each subkey
     foreach ($subKey in $subKeys) {
         # Full path to the subkey
         $fullSubKeyPath = $subKey.PSPath
-
         # Check if the subkey has a 'ProductName' value
         $productName = (Get-ItemProperty -Path $fullSubKeyPath -Name "ProductName" -ErrorAction SilentlyContinue).ProductName
-
         if ($productName -and $productName -like "*Qualys*") {
             # Extract only the last part of the registry key path
             $lastKey = $subKey.PSChildName
             write-host "Product Name: $productName"
             write-host "Registry Key: $lastKey"
-
             # Delete the registry key
             Remove-Item -Path "$regkeyHKCUInstallerProducts\$lastKey" -Recurse -Force
             write-host "Deleted Registry Key: $lastKey"
             if (!(Test-Path "$regkeyHKCUInstallerProducts\$lastKey")) {
-                Write-Host "cleanup_regkeyHKCUInstallerProducts successfull!"
+                Write-Host "Clear_RegistryHKCUInstallerProducts successfull!"
             } else {
-                Write-Host "cleanup_regkeyHKCUInstallerProducts failed."
+                Write-Host "Clear_RegistryHKCUInstallerProducts failed."
             }
         }
     }
 }
 
-function cleanup_regkeyUserData {
+function Clear_RegistryUserData {
     # Define the base registry path
     $regkeyUserData = "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Installer\UserData\S-1-5-18\Products"
-
     # Get all subkeys under the Products key
     $productKeys = Get-ChildItem -Path $regkeyUserData
-
     # Iterate through each subkey
     foreach ($productKey in $productKeys) {
         # Define the path to the InstallProperties key
         $installPropertiesPath = "$($productKey.PSPath)\InstallProperties"
-    
         # Check if the InstallProperties key exists
         if (Test-Path -Path $installPropertiesPath) {
             # Get the DisplayName value
             $displayName = Get-ItemProperty -Path $installPropertiesPath -Name DisplayName -ErrorAction SilentlyContinue
-
             # Check if the DisplayName contains "Qualys"
             if ($displayName.DisplayName -like "*Qualys*") {
                 # Output the key name after Products and the DisplayName
                 write-host "Key: $($productKey.PSChildName)"
                 write-host "DisplayName: $($displayName.DisplayName)"
-
                 # Delete the registry key
                 Remove-Item -Path $productKey.PSPath -Recurse -Force
                 write-host "Deleted registry key: $($productKey.PSPath)"
-
                 if (!(Test-Path $installPropertiesPath)) {
-                    Write-Host "cleanup_regkeyUserData Successfull!"
+                    Write-Host "Clear_RegistryUserData Successfull!"
                 } else {
-                    Write-Host "cleanup_regkeyUserData failed."
+                    Write-Host "Clear_RegistryUserData failed."
                 }
             }
         }
     }
 }
 
-function cleanup_registryQualys {
+function Clear_RegistryQualys {
     # Define the registry path
     $registryQualys = "HKLM:\SOFTWARE\Qualys"
-
-    If (!(Test-Path $registryQualys)) {
-        Write-Host "RegKey does not exist."
-    } else {
+    If (Test-Path $registryQualys) {
         # Delete the registry key
         Remove-Item -Path $registryQualys -Recurse -Force
-        write-host "Deleted registry key: $registryQualys"
-
         If (!(Test-Path $registryQualys)) {
-            Write-Host "cleanup_registryQualys successfull!"
+            Write-Host "Registry cleanup successful!"
         } else {
-            Write-Host "cleanup_registryQualys failed."
+            Write-Host "Registry cleanup failed."
         }
+    } else {
+        Write-Host "Registry key does not exist."
     }
 }
 
-function cleanup_registryPathx64 {
-    # Define the registry path
-    $registryPathx64 = "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall"
-
+function Clear-RegistryPath {
+    param (
+        [string]$RegistryPath,
+        [string]$DisplayNameFilter = "*Qualys*"
+    )
     # Get all subkeys under the Uninstall key
-    $uninstallKeys = Get-ChildItem -Path $registryPathx64
-
+    $subKeys = Get-ChildItem -Path $RegistryPath -ErrorAction SilentlyContinue
     # Iterate through each subkey
-    foreach ($key in $uninstallKeys) {
+    foreach ($subKey in $subKeys) {
+        $fullSubKeyPath = $subkey.PSPath
         # Get the DisplayName value
-        $displayName = Get-ItemProperty -Path $key.PSPath -Name DisplayName -ErrorAction SilentlyContinue
-
+        $productName = (Get-ItemProperty -Path $fullSubKeyPath -Name "DisplayName" -ErrorAction SilentlyContinue).DisplayName
         # Check if the DisplayName property exists and contains "Qualys"
-        if ($displayName -and $displayName.DisplayName -like "*Qualys*") {
+        if ($productName -like $DisplayNameFilter) {
             # Output the key name and DisplayName
             write-host "Key: $($key.PSChildName)"
-            write-host "DisplayName: $($displayName.DisplayName)"
-
+            write-host "DisplayName: $($productName.DisplayName)"
             # Delete the registry key
-            Remove-Item -Path $Key.PSPath -Recurse -Force
-            write-host "Deleted registry key: $($Key.PSPath)"
-
-            if (Test-Path "$registryPathx64\$($key.PSChildName)") {
-                Write-Host "cleanup_registryPathx64 successfull!"
+            Remove-Item -Path $fullSubKeyPath -Recurse -Force
+            if (Test-Path "$RegistryPath\$($key.PSChildName)") {
+                Write-Host "Successfully removed: $fullSubKeyPath"
             } else {
-                Write-host "cleanup_registryPathx64 failed."
+                Write-Host "Failed to remove: $fullSubKeyPath"
             }
         }
     }
 }
 
-function cleanup_registryPathx86 {
-    # Define the registry path
-    $registryPathx86 = "HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall"
-
-    # Get all subkeys under the Uninstall key
-    $uninstallKeys = Get-ChildItem -Path $registryPathx86
-
-    # Iterate through each subkey
-    foreach ($key in $uninstallKeys) {
-        # Get the DisplayName value
-        $displayName = Get-ItemProperty -Path $key.PSPath -Name DisplayName -ErrorAction SilentlyContinue
-
-        # Check if the DisplayName property exists and contains "Qualys"
-        if ($displayName -and $displayName.DisplayName -like "*Qualys*") {
-            # Output the key name and DisplayName
-            write-host "Key: $($key.PSChildName)"
-            write-host "DisplayName: $($displayName.DisplayName)"
-
-            # Delete the registry key
-            Remove-Item -Path $Key.PSPath -Recurse -Force
-            write-host "Deleted registry key: $($Key.PSPath)"
-
-            if (Test-Path "$registryPathx86\$($key.PSChildName)") {
-                Write-Host "cleanup_registryPathx86 successfull!"
-            } else {
-                Write-host "cleanup_registryPathx86 failed."
-            }
-        }
-    }
-}
-
-function cleanup_serviceName {
+function Clear_ServiceName {
     # Define the name of the service you want to uninstall
     $serviceName = "QualysAgent"
-
     # Confirm Service exists
     try {
         $serviceNameCatch = Get-Service -Name $serviceName -ErrorAction SilentlyContinue
@@ -261,188 +203,146 @@ function cleanup_serviceName {
     } catch {
         Write-Host "Unknown Error Occured."
     }
-
     if ($null -ne $serviceNameCatch) {
         # Stop the service first (if it's running)
         Stop-Service -Name $serviceName -Force
-
         # Uninstall the service using sc.exe
         & sc.exe delete $serviceName
-
         # Check if the service was successfully deleted
-        if (-not (Get-Service -Name $serviceName -ErrorAction SilentlyContinue)) {
+        if (!(Get-Service -Name $serviceName -ErrorAction SilentlyContinue)) {
             write-host "Service '$serviceName' deleted successfully."
         } else {
             write-host "Failed to delete service '$serviceName'."
         }
     } else {
-        write-host "Service Does Not Exist."
+        write-host "Service '$serviceName' does not exist."
     }
 }
 
-function cleanUninstallx64 {
+function Clear_ProgramData {
+    # Path to the registry key containing the products
+    $programDataPath = "$Env:ProgramData\Qualys\QualysAgent"
+    # Get all subkeys under the base registry path
+    If (Test-Path $programDataPath) {
+        Remove-Item $programDataPath -Recurse -Force
+        If (!(Test-Path $programDataPath)) {
+            Write-Host "ProgramData cleanup successful!"
+        } else {
+            Write-Host "ProgramData cleanup failed."
+        }
+    } Else {
+        write-host "$programDataPath does not exist."
+    }
+}
+
+function Uninstall-AgentClean {
+    param (
+        [string]$UninstallPath,
+        [Version]$PackagedVersion
+    )
     write-host "Comparing Installed file with Packaged file..."
-    $qualysCloudAgentInstalledVersionx64 = (Get-Item $uninstallx64).VersionInfo.FileVersionRaw # This detects the currently installed version on the local device under Program Files.
+    $installedVersion = (Get-Item $UninstallPath).VersionInfo.FileVersionRaw # This detects the currently installed version on the local device under Program Files.
     # Used for troubleshooting. Good way to confirm what versions have been detected.
-    write-host "Version Detected on Local Device: $qualysCloudAgentInstalledVersionx64"
-    write-host "Version Specified for package: $qualysCloudAgentPackagedVersion"
-    if ($qualysCloudAgentInstalledVersionx64 -lt $qualysCloudAgentPackagedVersion) {
+    write-host "Installed Version: $installedVersion"
+    write-host "Version Specified for package: $packagedVersion"
+    if ($installedVersion -lt $packagedVersion) {
         write-host "Qualys Agent on local device is an older version than the packaged Qualys Agent."
-        write-host "Uninstalling Qualys Agent from local device..."
-        start-process -FilePath $uninstallx64 -ArgumentList "Uninstall=True Force=True" -Wait
+        Write-Host "Uninstalling older version..."
+        start-process -FilePath $UninstallPath -ArgumentList "Uninstall=True Force=True" -Wait
         Start-Sleep 5
-        if (Test-Path $uninstallx64) {
-            write-host "File exists."
-            write-host "ERROR: Qualys Cloud Security Agent is still installed." -ForegroundColor Red
-            write-host "INFORMATION: Qualys Cloud Security Agent is either in the process of being updated or an unknown issue occured. Manual Investigation Reccommended." -ForegroundColor Yellow
+        if (Test-Path $UninstallPath) {
+            write-host "ERROR: Uninstallation failed. Manual investigation recommended." -ForegroundColor Red
+            write-host "INFORMATION: Qualys Cloud Security Agent is either in the process of being updated or an unknown issue occured." -ForegroundColor Yellow
             write-host "Please re-run the script again once manual investigation is done."
             write-host "Exiting script..."
-            Exit
+            Exit 1
         } else {
-            write-host "File does not exist."
+            write-host "Uninstallation successful."
         }
     } else {
-        write-host "Qualys Agent is either the same version or newer than the packaged version."
-        write-host "The agent will not be uninstalled and the script will be terminated, due to the assumption that the agent is healthy."
+        write-host "Installed version is up-to-date or newer. No action taken."
         write-host "Exiting Script..."
-        Exit
+        Exit 0
     }
 }
 
-function cleanUninstallx86 {
+function Uninstall-Agent {
+    param (
+        [string]$UninstallPath,
+        [Version]$PackagedVersion
+    )
     write-host "Comparing Installed file with Packaged file..."
-    $qualysCloudAgentInstalledVersionx86 = (Get-Item $uninstallx86).VersionInfo.FileVersionRaw # This detects the currently installed version on the local device under Program Files(x86).
+    $installedVersion = (Get-Item $UninstallPath).VersionInfo.FileVersionRaw # This detects the currently installed version on the local device under Program Files.
     # Used for troubleshooting. Good way to confirm what versions have been detected.
-    write-host "Version Detected on Local Device: $qualysCloudAgentInstalledVersionx86"
-    write-host "Version Specified for package: $qualysCloudAgentPackagedVersion"
-    if ($qualysCloudAgentInstalledVersionx86 -lt $qualysCloudAgentPackagedVersion) {
+    write-host "Installed Version: $installedVersion"
+    write-host "Version Specified for package: $packagedVersion"
+    if ($installedVersion -lt $packagedVersion) {
         write-host "Qualys Agent on local device is an older version than the packaged Qualys Agent."
-        write-host "Uninstalling Qualys Agent from local device..."
-        start-process -FilePath $uninstallx86 -ArgumentList "Uninstall=True Force=True" -Wait
+        Write-Host "Uninstalling older version..."
+        start-process -FilePath $UninstallPath -ArgumentList "Uninstall=True" -Wait
         Start-Sleep 5
-        if (Test-Path $uninstallx86) {
-            write-host "File exists."
-            write-host "ERROR: Qualys Cloud Security Agent is still installed." -ForegroundColor Red
-            write-host "INFORMATION: Qualys Cloud Security Agent is either in the process of being updated or an unknown issue occured. Manual Investigation Reccommended." -ForegroundColor Yellow
+        if (Test-Path $UninstallPath) {
+            write-host "ERROR: Uninstallation failed. Manual investigation recommended." -ForegroundColor Red
+            write-host "INFORMATION: Qualys Cloud Security Agent is either in the process of being updated or an unknown issue occured." -ForegroundColor Yellow
             write-host "Please re-run the script again once manual investigation is done."
             write-host "Exiting script..."
-            Exit
+            Exit 1
         } else {
-            write-host "File does not exist."
+            write-host "Uninstallation successful."
         }
     } else {
-        write-host "Qualys Agent is either the same version or newer than the packaged version."
-        write-host "The agent will not be uninstalled and the script will be terminated, due to the assumption that the agent is healthy."
+        write-host "Installed version is up-to-date or newer. No action taken."
         write-host "Exiting Script..."
-        Exit
-    }
-}
-
-function uninstallx64 {
-    write-host "Comparing Installed file with Packaged file..."
-    $qualysCloudAgentInstalledVersionx64 = (Get-Item $uninstallx64).VersionInfo.FileVersionRaw # This detects the currently installed version on the local device under Program Files.
-    # Used for troubleshooting. Good way to confirm what versions have been detected.
-    write-host "Version Detected on Local Device: $qualysCloudAgentInstalledVersionx64"
-    write-host "Version Specified for package: $qualysCloudAgentPackagedVersion"
-    if ($qualysCloudAgentInstalledVersionx64 -lt $qualysCloudAgentPackagedVersion) {
-        write-host "Qualys Agent on local device is an older version than the packaged Qualys Agent."
-        write-host "Uninstalling Qualys Agent from local device..."
-        start-process -FilePath $uninstallx64 -ArgumentList "Uninstall=True" -Wait
-        if (Test-Path $uninstallx64) {
-            write-host "File exists."
-            write-host "ERROR: Qualys Cloud Security Agent is still installed." -ForegroundColor Red
-            write-host "INFORMATION: Qualys Cloud Security Agent is either in the process of being updated or an unknown issue occured. Manual Investigation Reccommended." -ForegroundColor Yellow
-            write-host "Please re-run the script again once manual investigation is done."
-            write-host "Exiting script..."
-            Exit
-        } else {
-            write-host "File does not exist."
-        }
-    } else {
-        write-host "Qualys Agent is either the same version or newer than the packaged version."
-        write-host "The agent will not be uninstalled and the script will be terminated, due to the assumption that the agent is healthy."
-        write-host "Exiting Script..."
-        Exit
-    }
-}
-
-function uninstallx86 {
-    write-host "Comparing Installed file with Packaged file..."
-    $qualysCloudAgentInstalledVersionx86 = (Get-Item $uninstallx86).VersionInfo.FileVersionRaw # This detects the currently installed version on the local device under Program Files(x86).
-    # Used for troubleshooting. Good way to confirm what versions have been detected.
-    write-host "Version Detected on Local Device: $qualysCloudAgentInstalledVersionx86"
-    write-host "Version Specified for package: $qualysCloudAgentPackagedVersion"
-    if ($qualysCloudAgentInstalledVersionx86 -lt $qualysCloudAgentPackagedVersion) {
-        write-host "Qualys Agent on local device is an older version than the packaged Qualys Agent."
-        write-host "Uninstalling Qualys Agent from local device..."
-        start-process -FilePath $uninstallx86 -ArgumentList "Uninstall=True" -Wait
-        if (Test-Path $uninstallx86) {
-            write-host "File exists."
-            Write-host "ERROR: Qualys Cloud Security Agent is still installed." -ForegroundColor Red
-            Write-host "INFORMATION: Qualys Cloud Security Agent is either in the process of being updated or an unknown issue occured. Manual Investigation Reccommended." -ForegroundColor Yellow
-            write-host "Please re-run the script again once manual investigation is done."
-            write-host "Exiting script..."
-            Exit
-        } else {
-            write-host "File does not exist."
-        }
-    } else {
-        write-host "Qualys Agent is either the same version or newer than the packaged version."
-        write-host "The agent will not be uninstalled and the script will be terminated, due to the assumption that the agent is healthy."
-        write-host "Exiting Script..."
-        Exit
+        Exit 0
     }
 }
 
 function Install-Agent {
     write-host "Installing Qualys Agent version: $qualysCloudAgentPackagedVersion..."
-    start-process -FilePath $PSScriptRoot\QualysCloudAgent.exe -ArgumentList "CustomerID=$customerID ActivationID=$activationID WebServiceUri=$webServiceUri" -wait
-    If (($proxyPAC -ne "") -and ($proxyURL -eq "")) {
+    start-process -FilePath "C:\QualysClientHealth\Installer\QualysCloudAgent.exe" -ArgumentList "CustomerID=$customerID ActivationID=$activationID WebServiceUri=$webServiceUri" -wait
+    If ($proxyPAC -ne "") {
         Start-Sleep 5
         New-Item $regkeyProxy -Force
         New-ItemProperty $regkeyProxy -Name "PACFileURL" -Value $proxy -PropertyType "String" -Force
-        Net stop "Qualys Cloud Agent"
-        Net start "Qualys Cloud Agent"
-    } if (($proxyPAC -eq "") -and ($proxyURL -ne "")) {
+        Restart-Service -Name "Qualys Cloud Agent"
+    } if ($proxyURL -ne "") {
         Start-Sleep 5
         New-Item $regkeyProxy -Force
         New-ItemProperty $regkeyProxy -Name "URL" -Value $proxy -PropertyType "String" -Force
-        Net stop "Qualys Cloud Agent"
-        Net start "Qualys Cloud Agent"
-    } if (($proxyPAC -ne "") -and ($proxyURL -ne "")) {
-        Start-Sleep 5
-        New-Item $regkeyProxy -Force
-        New-ItemProperty $regkeyProxy -Name "PACFileURL" -Value $proxy -PropertyType "String" -Force
-        New-ItemProperty $regkeyProxy -Name "URL" -Value $proxy -PropertyType "String" -Force
-        Net stop "Qualys Cloud Agent"
-        Net start "Qualys Cloud Agent"
+        Restart-Service -Name "Qualys Cloud Agent"
     } if (($proxyPAC -eq "") -and ($proxyURL -eq "")) {
         write-host "Proxy not specified."
     }
 }
+## FUNCTIONS - END REGION ##
 
-#$install = "C:\QualysClientHealth\installer\QualysCloudAgent.exe"
+## MAIN LOGIC - REGION START ##
+# VARIABLES #
+$uninstallx64 = "$Env:Programfiles\Qualys\QualysAgent\Uninstall.exe"
+$uninstallx86 = "${Env:Programfiles(x86)}\Qualys\QualysAgent\Uninstall.exe"
 
+# HEALTH CHECK (PART 1 / 4) - IF AGENT DOES NOT ALREADY EXISTS. CLEAN INSTALL #
 if ((!(Test-Path $uninstallx64) -and !(Test-Path $uninstallx86))) {
     write-host "QualysAgent.exe not detected."
     write-host "Skipping uninstall..."
     write-host "Running cleanup..."
     write-host "Cleansing Qualys from Registry..."
-    cleanup_registryQualys
-    cleanup_regkeyHKCUInstallerProducts
-    cleanup_regkeyUserData
-    cleanup_registryPathx64
-    cleanup_registryPathx86
+    Clear_RegistryQualys
+    Clear_RegistryHKCUInstallerProducts
+    Clear_RegistryUserData
+    Cleanup-RegistryPath -RegistryPath "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall"
+    Cleanup-RegistryPath -RegistryPath "HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall"
     write-host "Cleansing Qualys from Services..."
-    cleanup_serviceName
+    Clear_ServiceName
     write-host "Cleansing Qualys from ProgramData..."
-    cleanup_programDataPath
+    Clear_ProgramData
     write-host "Cleanup complete."
     write-host "All traces of Qualys have been removed."
 } else {
+# HEALTH CHECK (PART 2 / 4) - IF AGENT ALREADY EXISTS, BUT REGISTRY IS UNHEALTHY. CLEAN INSTALL #
     # List of registry keys to check and potentially delete
     $regKeys = @(
-        "HKLM:\Software\Test1",
+        "HKLM:\SOFTWARE\Qualys",
         "HKLM:\Software\Test2",
         "HKLM:\Software\Test3"
     )
@@ -460,16 +360,16 @@ if ((!(Test-Path $uninstallx64) -and !(Test-Path $uninstallx86))) {
         if (Test-Path $uninstallx64) {
             # Checks to see if Qualys Agent Exists in Program Files. If detected then uninstall.
             write-host "File exists."
-            write-host "Running cleanUninstallx64..."
-            cleanUninstallx64
-            write-host "cleanUninstallx64 completed."
+            write-host "Running Uninstall-AgentClean..."
+            Uninstall-AgentClean -UninstallPath $uninstallx64 -PackagedVersion $QualysCloudAgentPackagedVersion
+            write-host "Uninstall-AgentClean completed."
         }
         # Checks to see if Qualys Agent Exists in Program Files(x86). If detected then uninstall.
         if (Test-Path $uninstallx86) {
             write-host "File exists."
-            write-host "Running cleanUninstallx86..."
-            cleanUninstallx86
-            write-host "cleanUninstallx86 completed."
+            write-host "Running Uninstall-AgentClean..."
+            Uninstall-AgentClean -UninstallPath $uninstallx86 -PackagedVersion $QualysCloudAgentPackagedVersion
+            write-host "Uninstall-AgentClean completed."
         }
         foreach ($key in $regKeys) {
             if (Test-RegKey -key $key) {
@@ -480,59 +380,76 @@ if ((!(Test-Path $uninstallx64) -and !(Test-Path $uninstallx86))) {
             }
         }
     } else {
+# HEALTH CHECK (PART 3 / 4) - IF AGENT ALREADY EXISTS AND REGISTRY IS HEALTHY. CHECK IF UPGRADE IS REQUIRED #
         Write-Output "All keys exist. No action taken."
-    }
-    if ($cleanUninstall -eq "y") {
-        if ($whatIF -eq "") {
-            if (Test-Path $uninstallx64) {
+        if ($cleanUninstall -eq "y") {
+            if ($whatIF -eq "") {
+                if (Test-Path $uninstallx64) {
+                    # Checks to see if Qualys Agent Exists in Program Files. If detected then uninstall.
+                    write-host "File exists."
+                    write-host "Running Uninstall-AgentClean..."
+                    Uninstall-AgentClean -UninstallPath $uninstallx64 -PackagedVersion $QualysCloudAgentPackagedVersion
+                    write-host "Uninstall-AgentClean completed."
+                }
+                # Checks to see if Qualys Agent Exists in Program Files(x86). If detected then uninstall.
+                if (Test-Path $uninstallx86) {
+                    write-host "File exists."
+                    write-host "Running Uninstall-AgentClean..."
+                    Uninstall-AgentClean -UninstallPath $uninstallx86 -PackagedVersion $QualysCloudAgentPackagedVersion
+                    write-host "Uninstall-AgentClean completed."
+                }
+                Write-Host "Running additional cleanup..."
+                write-host "Cleansing Qualys from Registry..."
+                Clear_RegistryQualys
+                Clear_RegistryHKCUInstallerProducts
+                Clear_RegistryUserData
+                Cleanup-RegistryPath -RegistryPath "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall"
+                Cleanup-RegistryPath -RegistryPath "HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall"
+                write-host "Cleansing Qualys from Services..."
+                Clear_ServiceName
+                write-host "Cleansing Qualys from ProgramData..."
+                Clear_ProgramData
+                write-host "Cleanup complete."
+                write-host "All traces of Qualys have been removed."
+            }
+        } if (($cleanUninstall -eq "n") -or ($cleanUninstall -eq "")) {
+            if ($whatIF -eq "") {
                 # Checks to see if Qualys Agent Exists in Program Files. If detected then uninstall.
-                write-host "File exists."
-                write-host "Running cleanUninstallx64..."
-                cleanUninstallx64
-                write-host "cleanUninstallx64 completed."
+                if (Test-Path $uninstallx64) {
+                    write-host "File exists."
+                    write-host "Running Uninstall-Agent..."
+                    Uninstall-Agent -UninstallPath $uninstallx64 -PackagedVersion $QualysCloudAgentPackagedVersion
+                    write-host "Uninstall-Agent completed."
+                }
+                # Checks to see if Qualys Agent Exists in Program Files(x86). If detected then uninstall.
+                if (Test-Path $uninstallx86) {
+                    write-host "File exists."
+                    write-host "Running Uninstall-Agent..."
+                    Uninstall-Agent -UninstallPath $uninstallx86 -PackagedVersion $QualysCloudAgentPackagedVersion
+                    write-host "Uninstall-Agent completed."
+                }
             }
-            # Checks to see if Qualys Agent Exists in Program Files(x86). If detected then uninstall.
-            if (Test-Path $uninstallx86) {
-                write-host "File exists."
-                write-host "Running cleanUninstallx86..."
-                cleanUninstallx86
-                write-host "cleanUninstallx86 completed."
-            }
-            write-host "Running cleanup..."
-            write-host "Cleansing Qualys from Registry..."
-            cleanup_registryQualys
-            cleanup_regkeyHKCUInstallerProducts
-            cleanup_regkeyUserData
-            cleanup_registryPathx64
-            cleanup_registryPathx86
-            write-host "Cleansing Qualys from Services..."
-            cleanup_serviceName
-            write-host "Cleansing Qualys from ProgramData..."
-            cleanup_programDataPath
-            write-host "Cleanup complete."
-            write-host "All traces of Qualys have been removed."
+        } else {
+            Write-Host "Please confirm if a Clean Uninstall is required."
         }
-    } if (($cleanUninstall -eq "n") -or ($cleanUninstall -eq "")) {
-        if ($whatIF -eq "") {
-            # Checks to see if Qualys Agent Exists in Program Files. If detected then uninstall.
-            if (Test-Path $uninstallx64) {
-                write-host "File exists."
-                write-host "Running uninstallx64..."
-                uninstallx64
-                write-host "uninstallx64 completed."
-            }
-            # Checks to see if Qualys Agent Exists in Program Files(x86). If detected then uninstall.
-            if (Test-Path $uninstallx86) {
-                write-host "File exists."
-                write-host "Running uninstallx86..."
-                uninstallx86
-                write-host "uninstallx86 completed."
-            }
+# HEALTH CHECK (PART 4 / 4) - IF AGENT ALREADY EXISTS, REGISTRY IS HEALTHY AND AGENT IS UP-TO-DATE. RE-ENFORCE CORRECT CONFIGURATION #
+        If ($proxyPAC -ne "") {
+            Start-Sleep 5
+            New-Item $regkeyProxy -Force
+            New-ItemProperty $regkeyProxy -Name "PACFileURL" -Value $proxy -PropertyType "String" -Force
+            Restart-Service -Name "Qualys Cloud Agent"
+        } if ($proxyURL -ne "") {
+            Start-Sleep 5
+            New-Item $regkeyProxy -Force
+            New-ItemProperty $regkeyProxy -Name "URL" -Value $proxy -PropertyType "String" -Force
+            Restart-Service -Name "Qualys Cloud Agent"
+        } if (($proxyPAC -eq "") -and ($proxyURL -eq "")) {
+            write-host "Proxy not specified."
         }
-    } else {
-        Write-Host "Please confirm if a Clean Uninstall is required."
     }
 }
 
 Install-Agent
 write-host "Script Complete."
+## END REGION ##
+## SCRIPT END ##
