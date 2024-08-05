@@ -1,0 +1,12 @@
+<Parameters>
+    <cleanUninstall>n</cleanUninstall>
+    <customerID>{01234567-0123-0123-0123-012345678910}</customerID>
+    <activationID>{01234567-0123-0123-0123-012345678910}</activationID>
+    <webServiceUri>https://[QUALYS-AGENT-URL]/</webServiceUri>
+    <proxyPAC>https://proxy.pac</proxyPAC>
+    <proxyURL>https://proxy.url</proxyURL>
+    <serverShare>\\[SERVERNAME]\QualysClientHealth$</serverShare>
+    <serverInstaller>\\[SERVERNAME]\QualysClientHealth$\Installer\QualysCloudAgent.exe</serverInstaller>
+    <serverLogs>\\[SERVERNAME]\QualysClientHealth$\Logs</serverLogs>
+    <whatIF>n</whatIF>
+</Parameters>
