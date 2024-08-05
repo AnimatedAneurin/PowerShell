@@ -1,10 +1,10 @@
 <Parameters>
     <qualysCloudAgentPackagedVersion>5.6.0.20</qualysCloudAgentPackagedVersion>
     <cleanUninstall>n</cleanUninstall>
-    <customerID>{01234567-0123-0123-0123-012345678910}</customerID>
-    <activationID>{01234567-0123-0123-0123-012345678910}</activationID>
-    <webServiceUri>https://[Qualys-URL-Here]]</webServiceUri>
-    <proxyPAC>https:/Example/proxy.pac</proxyPAC>
-    <proxyURL>https:/Example/proxy.url</proxyURL>
+    <customerID>{edb521d5-b0c5-e3e4-8333-f5dbfb63f8d0}</customerID>
+    <activationID>{4ee8accf-4952-47e2-9304-b04b165ee3bb}</activationID>
+    <webServiceUri>https://qagpublic.qg2.apps.qualys.eu/CloudAgent/</webServiceUri>
+    <proxyPAC>https://proxy.pac</proxyPAC>
+    <proxyURL>https://proxy.url</proxyURL>
     <whatIF>n</whatIF>
 </Parameters>
