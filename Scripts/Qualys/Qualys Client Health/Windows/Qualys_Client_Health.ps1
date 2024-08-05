@@ -15,16 +15,11 @@
 
     .NOTES
         Name: Qualys_Client_Health.ps1
-        Version: 1.3
+        Version: 1.4
         Author: Aneurin Weale - VAR
         Date Created: 24/06/2024
-        Last Updated: 05/08/2024
+        Last Updated: 06/08/2024
         URL: https://github.com/AnimatedAneurin/PowerShell/blob/PowerShell/Scripts/Qualys/Qualys%20Client%20Health/Windows/Qualys_Client_Health.ps1
-#>
-
-<# To-Do:
-    1. Add Logging System. - Create Local Directory. Upload Logs to SCCM.
-    2. Download Agent to EUD.
 #>
 
 ## SCRIPT START ##
@@ -44,7 +39,7 @@ Param (
     [Parameter(Mandatory=$False)] [String]$whatIF
 )
 
-$EUD = $env:computername
+# CREATE LOCAL DIRECTORIES #
 If (!(Test-Path "C:\QualysClientHealth")) {
     New-Item -ItemType Directory -Force -Path "C:\QualysClientHealth"
 }
@@ -56,6 +51,7 @@ If (!(Test-Path "C:\QualysClientHealth\Logs")) {
 }
 
 # LOGGING SYSTEM #
+$EUD = $env:computername
 $log = "C:\QualysClientHealth\Logs\$EUD-QualysClientHealth.log"
 Function LogWrite { #This function allows us to replace all 'Write-Host' commands to 'LogWrite' commands. This means instead of outputting text to the terminal, it'll output to a log file instead.
     #Function to create a log file in the current directory.
@@ -206,15 +202,20 @@ function Clear_RegistryUserData {
 }
 
 function Clear_RegistryQualys {
+    param (
+        [string]$DeleteRegValue
+    )
     # Define the registry path
     $registryQualys = "HKLM:\SOFTWARE\Qualys"
     If (Test-Path $registryQualys) {
         # Delete the registry key
-        Remove-Item -Path $registryQualys -Recurse -Force
-        If (!(Test-Path $registryQualys)) {
-            LogWrite -logstring "Registry cleanup successful!"
-        } else {
-            LogWrite -logstring "Registry cleanup failed."
+        if ($DeleteRegValue -eq $TRUE) {
+            Remove-Item -Path $registryQualys -Recurse -Force
+            If (!(Test-Path $registryQualys)) {
+                LogWrite -logstring "Registry cleanup successful!"
+            } else {
+                LogWrite -logstring "Registry cleanup failed."
+            }
         }
     } else {
         LogWrite -logstring "Registry key does not exist."
@@ -317,12 +318,29 @@ function Uninstall-Agent {
     }
     Start-Sleep 5
     if (Test-Path $UninstallPath) {
-        LogWrite -logstring "ERROR: Uninstallation failed. Manual investigation recommended."
-        LogWrite -logstring "INFORMATION: Qualys Cloud Security Agent is either in the process of being updated or an unknown issue occured."
-        LogWrite -logstring "Please re-run the script again once manual investigation is done."
-        LogWrite -logstring "Exiting script..."
-        LogWrite -logstring "--------------------------------- ENDED ----------------------------------"
-        Exit 1
+        LogWrite -logstring "ERROR: Uninstallation failed. Performing Deep Clean..."
+        LogWrite -logstring "Cleansing Qualys from Registry..."
+        Clear_RegistryQualys -DeleteRegValue $True
+        Clear_RegistryHKCUInstallerProducts -DeleteRegValue $True
+        Clear_RegistryUserData -DeleteRegValue $True
+        Clear-RegistryPath -RegistryPath "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall" -DeleteRegValue $True
+        Clear-RegistryPath -RegistryPath "HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall" -DeleteRegValue $True
+        LogWrite -logstring "Cleansing Qualys from Services..."
+        Clear_ServiceName
+        LogWrite -logstring "Cleansing Qualys from ProgramData..."
+        Clear_ProgramData
+        LogWrite -logstring "Cleansing Qualys from ProgramFiles..."
+        Remove-Item "$Env:ProgramFiles\Qualys\QualysAgent" -Recurse -Force
+        LogWrite -logstring "Cleanup complete."
+        LogWrite -logstring "All traces of Qualys have been removed."
+        if (Test-Path $UninstallPath) {
+            LogWrite -logstring "ERROR: Uninstallation failed. Manual investigation recommended."
+            LogWrite -logstring "INFORMATION: Qualys Cloud Security Agent is either in the process of being updated or an unknown issue occured."
+            LogWrite -logstring "Please re-run the script again once manual investigation is done."
+            LogWrite -logstring "Exiting script..."
+            LogWrite -logstring "--------------------------------- ENDED ----------------------------------"
+            Exit 1
+        }
     } else {
         LogWrite -logstring "Uninstallation successful."
     }
@@ -366,22 +384,24 @@ function Update-Agent {
             Start-Sleep 5
             if ((Test-Path $uninstallx64) -or (Test-Path $uninstallx86)) {
                 LogWrite -logstring "Qualys Agent Successfully installed!"
+                LogWrite -logstring "Configuring Proxy..."
+                If ($proxyPAC -ne "") {
+                    New-Item $regkeyProxy -Force
+                    New-ItemProperty $regkeyProxy -Name "PACFileURL" -Value $proxyPAC -PropertyType "String" -Force
+                    Restart-Service -Name "Qualys Cloud Agent"
+                    LogWrite -logstring "Proxy Configured."
+                } if ($proxyURL -ne "") {
+                    New-Item $regkeyProxy -Force
+                    New-ItemProperty $regkeyProxy -Name "URL" -Value $proxyURL -PropertyType "String" -Force
+                    Restart-Service -Name "Qualys Cloud Agent"
+                    LogWrite -logstring "Proxy Configured."
+                } if (($proxyPAC -eq "") -and ($proxyURL -eq "")) {
+                    LogWrite -logstring "Proxy not specified."
+                }
                 $AgentUpdated = 1
             } else {
                 LogWrite -logstring "Qualys Agent installation failed."
                 $AgentUpdated = 0
-            }
-            If ($proxyPAC -ne "") {
-                New-Item $regkeyProxy -Force
-                New-ItemProperty $regkeyProxy -Name "PACFileURL" -Value $proxyPAC -PropertyType "String" -Force
-                Restart-Service -Name "Qualys Cloud Agent"
-            } if ($proxyURL -ne "") {
-                Start-Sleep 5
-                New-Item $regkeyProxy -Force
-                New-ItemProperty $regkeyProxy -Name "URL" -Value $proxyURL -PropertyType "String" -Force
-                Restart-Service -Name "Qualys Cloud Agent"
-            } if (($proxyPAC -eq "") -and ($proxyURL -eq "")) {
-                LogWrite -logstring "Proxy not specified."
             }
         }
     } else {
@@ -392,24 +412,37 @@ function Update-Agent {
 }
 
 function Install-Agent {
-    LogWrite -logstring "Checking if Agent exists locally..."
-    Test-Path (!("C:\QualysClientHealth\Installer\QualysCloudAgent.exe")) {
+    LogWrite -logstring "Checking if Qualys Agent Installer exists locally..."
+    if (!(Test-Path "C:\QualysClientHealth\Installer\QualysCloudAgent.exe")) {
+        LogWrite -logstring "Qualys Agent Installer Not Detected. Downloading Installer..."
         Copy-Item $serverInstaller -Destination "C:\QualysClientHealth\Installer" -Force
     }
+    $serverVersion = (Get-Item $serverInstaller).VersionInfo.FileVersionRaw # This detects the remote installer version.
     LogWrite -logstring "Installing Qualys Agent version: $serverVersion..."
     start-process -FilePath "C:\QualysClientHealth\Installer\QualysCloudAgent.exe" -ArgumentList "CustomerID=$customerID ActivationID=$activationID WebServiceUri=$webServiceUri" -wait
-    If ($proxyPAC -ne "") {
-        Start-Sleep 5
-        New-Item $regkeyProxy -Force
-        New-ItemProperty $regkeyProxy -Name "PACFileURL" -Value $proxyPAC -PropertyType "String" -Force
-        Restart-Service -Name "Qualys Cloud Agent"
-    } if ($proxyURL -ne "") {
-        Start-Sleep 5
-        New-Item $regkeyProxy -Force
-        New-ItemProperty $regkeyProxy -Name "URL" -Value $proxyURL -PropertyType "String" -Force
-        Restart-Service -Name "Qualys Cloud Agent"
-    } if (($proxyPAC -eq "") -and ($proxyURL -eq "")) {
-        LogWrite -logstring "Proxy not specified."
+    Start-Sleep 5
+    if ((Test-Path $uninstallx64) -or (Test-Path $uninstallx86)) {
+        LogWrite -logstring "Qualys Agent Successfully installed!"
+        LogWrite -logstring "Configuring Proxy..."
+        If ($proxyPAC -ne "") {
+            New-Item $regkeyProxy -Force
+            New-ItemProperty $regkeyProxy -Name "PACFileURL" -Value $proxyPAC -PropertyType "String" -Force
+            Restart-Service -Name "Qualys Cloud Agent"
+            LogWrite -logstring "Proxy Configured."
+        } if ($proxyURL -ne "") {
+            New-Item $regkeyProxy -Force
+            New-ItemProperty $regkeyProxy -Name "URL" -Value $proxyURL -PropertyType "String" -Force
+            Restart-Service -Name "Qualys Cloud Agent"
+            LogWrite -logstring "Proxy Configured."
+        } if (($proxyPAC -eq "") -and ($proxyURL -eq "")) {
+            LogWrite -logstring "Proxy not specified."
+        }
+        LogWrite -logstring "--------------------------------- ENDED ----------------------------------"
+        Exit 0
+    } else {
+        LogWrite -logstring "Qualys Agent installation failed."
+        LogWrite -logstring "--------------------------------- ENDED ----------------------------------"
+        Exit 1
     }
 }
 ## FUNCTIONS - END REGION ##
@@ -442,7 +475,7 @@ if (!($whatIF -eq "y")) {
         LogWrite -logstring "Skipping uninstall..."
         LogWrite -logstring "Running cleanup..."
         LogWrite -logstring "Cleansing Qualys from Registry..."
-        Clear_RegistryQualys
+        Clear_RegistryQualys -DeleteRegValue $True
         Clear_RegistryHKCUInstallerProducts -DeleteRegValue $True
         Clear_RegistryUserData -DeleteRegValue $True
         Clear-RegistryPath -RegistryPath "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall" -DeleteRegValue $True
@@ -453,38 +486,53 @@ if (!($whatIF -eq "y")) {
         Clear_ProgramData
         LogWrite -logstring "Cleanup complete."
         LogWrite -logstring "All traces of Qualys have been removed."
-        LogWrite -logstring "Installing Qualys Agent..."
+        LogWrite -logstring "Running Install-Agent..."
         Install-Agent
-        if ((Test-Path $uninstallx64) -or (Test-Path $uninstallx86)) {
-            LogWrite -logstring "Qualys Agent Successfully installed!"
-            LogWrite -logstring "--------------------------------- ENDED ----------------------------------"
-            Exit 0
-        } else {
-            LogWrite -logstring "Qualys Agent installation failed."
-            LogWrite -logstring "--------------------------------- ENDED ----------------------------------"
-            Exit 1
-        }
     } else {
 # HEALTH CHECK (PART 2 / 4) - IF AGENT ALREADY EXISTS, BUT REGISTRY IS UNHEALTHY. CLEAN INSTALL #
-        # List of registry keys to check and potentially delete
-        $regKeys = @(
-            "HKLM:\SOFTWARE\Qualys"
-        )        
-        $deletedKeysHKCUInstallerProducts = Clear_RegistryHKCUInstallerProducts -DeleteRegValue $False
-        $regKeys += $deletedKeysHKCUInstallerProducts
-        $deletedKeysUserData = Clear_RegistryUserData -DeleteRegValue $False
-        $regKeys += $deletedKeysUserData
-        $deletedKeysRegistryPath = Clear-RegistryPath -RegistryPath "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall" -DeleteRegValue $False
-        $regKeys += $deletedKeysRegistryPath
-        $deletedKeysRegistryPath = Clear-RegistryPath -RegistryPath "HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall" -DeleteRegValue $False
-        $regKeys += $deletedKeysRegistryPath
         # Flag to determine if any key does not exist
         $anyKeyMissing = $false
+        # List of registry keys to check and potentially delete
+        $regKeys = @(
+            
+        )
+        $deletedKeysRegistryQualys = Clear_RegistryQualys -DeleteRegValue $False
+        if ($deletedKeysRegistryQualys) {
+            $regKeys += $deletedKeysRegistryQualys
+        } else {
+            $anyKeyMissing = $True
+        }
+        $deletedKeysHKCUInstallerProducts = Clear_RegistryHKCUInstallerProducts -DeleteRegValue $False
+        if ($deletedKeysHKCUInstallerProducts) {
+            $regKeys += $deletedKeysHKCUInstallerProducts
+        } else {
+            $anyKeyMissing = $True
+        }
+        $deletedKeysUserData = Clear_RegistryUserData -DeleteRegValue $False
+        if ($deletedKeysUserData) {
+            $regKeys += $deletedKeysUserData
+        } else {
+            $anyKeyMissing = $True
+        }
+        $deletedKeysRegistryPath = Clear-RegistryPath -RegistryPath "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall" -DeleteRegValue $False
+        if ($deletedKeysRegistryPath) {
+            $regKeys += $deletedKeysRegistryPath
+        } else {
+            $anyKeyMissing = $True
+        }
+        $deletedKeysRegistryPath = Clear-RegistryPath -RegistryPath "HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall" -DeleteRegValue $False
+        if ($deletedKeysRegistryPath) {
+            $regKeys += $deletedKeysRegistryPath
+        } else {
+            $anyKeyMissing = $True
+        }
         # Check if each registry key exists
-        foreach ($key in $regKeys) {
-            if (-not (Test-Path $key)) {
-                $anyKeyMissing = $true
-                break
+        if (!($anyKeyMissing)) {
+            foreach ($key in $regKeys) {
+                if (-not (Test-Path $key)) {
+                    $anyKeyMissing = $true
+                    break
+                }
             }
         }
         # If any key is missing, delete all keys in the list
@@ -504,24 +552,15 @@ if (!($whatIF -eq "y")) {
                 LogWrite -logstring "Uninstall-Agent completed."
             }
             foreach ($key in $regKeys) {
-                if (Test-RegKey -key $key) {
+                if (Test-Path $key) {
                     Remove-Item -Path $key -Recurse -Force
                     LogWrite -logstring "Deleted: $key"
                 } else {
                     LogWrite -logstring "Key not found, nothing to delete: $key"
                 }
             }
-            LogWrite -logstring "Installing Qualys Agent..."
+            LogWrite -logstring "Running Install-Agent..."
             Install-Agent
-            if ((Test-Path $uninstallx64) -or (Test-Path $uninstallx86)) {
-                LogWrite -logstring "Qualys Agent Successfully installed!"
-                LogWrite -logstring "--------------------------------- ENDED ----------------------------------"
-                Exit 0
-            } else {
-                LogWrite -logstring "Qualys Agent installation failed."
-                LogWrite -logstring "--------------------------------- ENDED ----------------------------------"
-                Exit 1
-            }
         } else {
 # HEALTH CHECK (PART 3 / 4) - IF AGENT ALREADY EXISTS AND REGISTRY IS HEALTHY. CHECK IF UPGRADE IS REQUIRED #
             LogWrite -logstring "All keys exist. No action taken."
@@ -547,11 +586,13 @@ if (!($whatIF -eq "y")) {
                     New-Item $regkeyProxy -Force
                     New-ItemProperty $regkeyProxy -Name "PACFileURL" -Value $proxyPAC -PropertyType "String" -Force
                     Restart-Service -Name "Qualys Cloud Agent"
+                    LogWrite -logstring "Proxy Configured."
                 } if ($proxyURL -ne "") {
                     Start-Sleep 5
                     New-Item $regkeyProxy -Force
                     New-ItemProperty $regkeyProxy -Name "URL" -Value $proxyURL -PropertyType "String" -Force
                     Restart-Service -Name "Qualys Cloud Agent"
+                    LogWrite -logstring "Proxy Configured."
                 } if (($proxyPAC -eq "") -and ($proxyURL -eq "")) {
                     LogWrite -logstring "Proxy not specified."
                 }
@@ -622,7 +663,7 @@ if ($whatIF -eq "y") {
                 LogWrite -logstring "Uninstall-Agent completed."
             }
             foreach ($key in $regKeys) {
-                if (Test-RegKey -key $key) {
+                if (Test-Path $key) {
                     LogWrite -logstring "WHATIF: RegKey Deletion would take place here."
                     LogWrite -logstring "Deleted: $key"
                 } else {
