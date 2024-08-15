@@ -12,7 +12,7 @@
         Author: Aneurin Weale - VAR
         Date Created: 14/08/2024
         Last Updated: 14/08/2024
-        URL: 
+        URL: https://github.com/AnimatedAneurin/PowerShell/blob/PowerShell/Scripts/Qualys/Remediation/Zoom_Detection_and_Remediation.ps1
 #>
 
 #Region Detection
