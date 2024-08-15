@@ -8,28 +8,29 @@
 
     .NOTES
         Name: Zoom_Detection_and_Remediation.ps1
-        Version: 1.0
+        Version: 1.1
         Author: Aneurin Weale - VAR
         Date Created: 14/08/2024
-        Last Updated: 14/08/2024
+        Last Updated: 15/08/2024
         URL: https://github.com/AnimatedAneurin/PowerShell/blob/PowerShell/Scripts/Qualys/Remediation/Zoom_Detection_and_Remediation.ps1
 #>
 
 #Region Detection
+$applicationDoesNotExist = $TRUE
 $userRoot = "C:\Users"
 $UserList = Get-ChildItem -Path $userRoot -Directory -Force -ErrorAction SilentlyContinue
 foreach ($User in $UserList) {
     #Write-Host "Checking $userRoot\$($User.Name)"
     if (Test-Path -Path "$userRoot\$($User.Name)\AppData\Roaming\Zoom") {
         Write-Host "Application Found Under Username: $($User.Name)"
-        Write-Host $TRUE
+        $applicationDoesNotExist = $FALSE
     }
     <# Do not uncomment this section. This will break detection for Configuration Items on SCCM.
     else {
         Write-Host "Application Not Found"
-        Write-Host $FALSE
     }#>
 }
+Write-Host $applicationDoesNotExist
 #EndRegion
 
 #Region Removal
