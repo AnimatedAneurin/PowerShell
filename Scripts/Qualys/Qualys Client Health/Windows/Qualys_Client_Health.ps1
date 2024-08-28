@@ -15,10 +15,10 @@
 
     .NOTES
         Name: Qualys_Client_Health.ps1
-        Version: 1.5
+        Version: 1.5.1
         Author: Aneurin Weale - VAR
         Date Created: 24/06/2024
-        Last Updated: 23/08/2024
+        Last Updated: 28/08/2024
         URL: https://github.com/AnimatedAneurin/PowerShell/blob/PowerShell/Scripts/Qualys/Qualys%20Client%20Health/Windows/Qualys_Client_Health.ps1
 #>
 
@@ -69,6 +69,8 @@ if (Test-Path $Config) {
 } else {
     LogWrite -logstring "Config file not found: $Config"
     LogWrite -logstring "--------------------------------- ENDED ----------------------------------"
+    # UPLOAD LOCAL LOGFILE TO SERVER
+    Copy-Item $log -Destination "$serverLogs" -Force
     exit 1
 }
 
@@ -348,6 +350,8 @@ function Uninstall-Agent {
             LogWrite -logstring "Please re-run the script again once manual investigation is done."
             LogWrite -logstring "Exiting script..."
             LogWrite -logstring "--------------------------------- ENDED ----------------------------------"
+            # UPLOAD LOCAL LOGFILE TO SERVER
+            Copy-Item $log -Destination "$serverLogs" -Force
             Exit 1
         }
     } else {
@@ -383,6 +387,8 @@ function Update-Agent {
             LogWrite -logstring "Please re-run the script again once manual investigation is done."
             LogWrite -logstring "Exiting script..."
             LogWrite -logstring "--------------------------------- ENDED ----------------------------------"
+            # UPLOAD LOCAL LOGFILE TO SERVER
+            Copy-Item $log -Destination "$serverLogs" -Force
             Exit 1
         } else {
             LogWrite -logstring "Uninstallation successful."
@@ -447,10 +453,14 @@ function Install-Agent {
             LogWrite -logstring "Proxy not specified."
         }
         LogWrite -logstring "--------------------------------- ENDED ----------------------------------"
+        # UPLOAD LOCAL LOGFILE TO SERVER
+        Copy-Item $log -Destination "$serverLogs" -Force
         Exit 0
     } else {
         LogWrite -logstring "Qualys Agent installation failed."
         LogWrite -logstring "--------------------------------- ENDED ----------------------------------"
+        # UPLOAD LOCAL LOGFILE TO SERVER
+        Copy-Item $log -Destination "$serverLogs" -Force
         Exit 1
     }
 }
@@ -642,6 +652,8 @@ if ($whatIF -eq "y") {
         LogWrite -logstring "Installing Qualys Agent..."
         LogWrite -logstring "WHATIF: Function 'Install-Agent' would run here"
         LogWrite -logstring "--------------------------------- ENDED ----------------------------------"
+        # UPLOAD LOCAL LOGFILE TO SERVER
+        Copy-Item $log -Destination "$serverLogs" -Force
         Exit 0
     } else {
 # HEALTH CHECK (PART 2 / 4) - IF AGENT ALREADY EXISTS, BUT REGISTRY IS UNHEALTHY. CLEAN INSTALL #
@@ -697,10 +709,14 @@ if ($whatIF -eq "y") {
             if ((Test-Path $uninstallx64) -or (Test-Path $uninstallx86)) {
                 LogWrite -logstring "Qualys Agent Successfully installed!"
                 LogWrite -logstring "--------------------------------- ENDED ----------------------------------"
+                # UPLOAD LOCAL LOGFILE TO SERVER
+                Copy-Item $log -Destination "$serverLogs" -Force
                 Exit 0
             } else {
                 LogWrite -logstring "Qualys Agent installation failed."
                 LogWrite -logstring "--------------------------------- ENDED ----------------------------------"
+                # UPLOAD LOCAL LOGFILE TO SERVER
+                Copy-Item $log -Destination "$serverLogs" -Force
                 Exit 1
             }
         } else {
@@ -725,10 +741,14 @@ if ($whatIF -eq "y") {
             if ((Test-Path $uninstallx64) -or (Test-Path $uninstallx86)) {
                 LogWrite -logstring "Qualys Agent Successfully installed!"
                 LogWrite -logstring "--------------------------------- ENDED ----------------------------------"
+                # UPLOAD LOCAL LOGFILE TO SERVER
+                Copy-Item $log -Destination "$serverLogs" -Force
                 Exit 0
             } else {
                 LogWrite -logstring "Qualys Agent installation failed."
                 LogWrite -logstring "--------------------------------- ENDED ----------------------------------"
+                # UPLOAD LOCAL LOGFILE TO SERVER
+                Copy-Item $log -Destination "$serverLogs" -Force
                 Exit 1
             }
         }
