@@ -12,7 +12,7 @@
         Author: Aneurin Weale - VAR
         Date Created: 16/06/2025
         Last Updated: 16/06/2025
-        URL: 
+        URL: https://github.com/AnimatedAneurin/PowerShell/blob/PowerShell/Scripts/App-Specific/VLC/install-VLC.ps1
 #>
 
 #==========================================================================#
