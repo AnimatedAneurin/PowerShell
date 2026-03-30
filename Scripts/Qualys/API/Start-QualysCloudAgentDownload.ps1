@@ -18,7 +18,7 @@ $username = "" # Must have API access + the correct level of perms. More informa
 $password = ""
 $api = "" # Can be obtained from the Qualys Portal
 
-$uri = Join-Path -Path $api -ChildPath "/qps/rest/1.0/download/ca/downloadbinary/"
+$uri = $api + "/qps/rest/1.0/download/ca/downloadbinary/"
 
 $outFilePath = ""
 $qualysCloudAgent = "QualysCloudAgent.exe"
