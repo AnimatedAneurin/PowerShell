@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ServiceRequest>
+    <data>
+        <DownloadBinary>
+            <platform>WINDOWS</platform>
+            <architecture>X_86_64</architecture>
+        </DownloadBinary>
+    </data>
+</ServiceRequest>
