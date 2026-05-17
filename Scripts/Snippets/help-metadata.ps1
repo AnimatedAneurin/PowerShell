@@ -1,3 +1,5 @@
+#REQUIRES -Version 5.1
+
 <#
 .SYNOPSIS
     A short one-line action-based description, e.g. 'Tests if a function is valid'
