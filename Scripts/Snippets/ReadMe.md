@@ -4,7 +4,7 @@ Code snippets are reusable templates that make it easier to enter repeating code
 
 ## Using Microsoft Visual Studio Code (VSCode)?
 
-VS Code allows you to create and manage your own snippets without installing any extensions. This makes it easy to insert frequently used code instead of rewriting it each time.
+VSCode allows you to create and manage your own snippets without installing any extensions. This makes it easy to insert frequently used code instead of rewriting it each time.
 
 To create or edit snippets:
 
@@ -18,7 +18,7 @@ Alternatively:
 3. Select **Snippets: Configure Snippets**
 4. Choose your preferred language
 
-VS Code will automatically create and manage the required snippet files for you.
+VSCode will automatically create and manage the required snippet files for you.
 
 ## Need help creating your first snippet in VSCode?
 
