@@ -1,18 +1,31 @@
 # What are Code Snippets?
 
-Code snippets are templates that make it easier to enter repeating code patterns, such as loops or conditional-statements.
+Code snippets are reusable templates that make it easier to enter repeating code patterns, such as loops or conditional-statements.
 
 ## Using Microsoft Visual Studio Code (VSCode)?
 
-You can easily define your own snippets without any extension so you can call upon these snippets instead of writing them from scratch.
-To create or edit your own snippets, select Configure Snippets under File > Preferences > Configure Snippets, and then select the language (by language identifier) for which the snippets should appear.
-Alternatively, press 'fn+F1' and type in 'snippets' then select Snippets: Configure Snippets, then select the lanaguage.
-VS Code manages the creation and refreshing of the underlying snippets file(s) for you.
+VS Code allows you to create and manage your own snippets without installing any extensions. This makes it easy to insert frequently used code instead of rewriting it each time.
+
+To create or edit snippets:
+
+1. Open **File > Preferences > Configure Snippets**
+2. Select the language you want the snippets to apply to
+
+Alternatively:
+
+1. Press `fn + F1`
+2. Search for `snippets`
+3. Select **Snippets: Configure Snippets**
+4. Choose your preferred language
+
+VS Code will automatically create and manage the required snippet files for you.
 
 ## Need help creating your first snippet in VSCode?
 
-Here is a [Snippet Generator](https://snippet-generator.app/)
+Try the following snippet generator:
+
+- [Snippet Generator](https://snippet-generator.app/)
 
 ## Examples
 
-Please see powershell.json
+See `powershell.json` for example snippets.
