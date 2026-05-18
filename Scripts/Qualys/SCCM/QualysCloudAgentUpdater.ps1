@@ -1,24 +1,92 @@
+#REQUIRES -Version 5.1
+#REQUIRES -Modules ConfigurationManager
+#REQUIRES -RunAsAdministrator
+
 <#
 .SYNOPSIS
-    Script to download the latest Qualys Cloud Agent, then update a Configuration Manager application source.
+    Downloads the latest Qualys Cloud Agent and updates the content source of a Configuration Manager application.
 .DESCRIPTION
-    Downloads the latest Qualys Cloud Agent (QualysCloudAgent.exe) and saves to a provided location, then updates the content of a provided Configuration Manager application on the distribution points it's assigned to. This application can be added to a task sequence, or deployed as available or required.
+    Downloads the latest Qualys Cloud Agent installer (QualysCloudAgent.exe),
+    then updates the associated Microsoft Configuration Manager application content on its assigned distribution points.
+
+    The application can then be used in task sequences or deployed as Available or Required.
+.PARAMETER appModelName
+    Specifies the ModelName of the Configuration Manager application.
+
+    The ModelName is a unique identifier that remains unchanged even when the application revision is updated.
+    To find the ModelName of an application:
+
+        - Open PowerShell ISE from the Configuration Manager console.
+            - A script will automatically be generated to import the ConfigurationManager module.
+            - Run the generated script to connect to your Configuration Manager environment.
+        - Once connected to your Configuration Manager environment, run the following:
+            - Get-CMApplication -Name "[Application Package Name]"
+        - The ModelName value will be displayed in the results.
+.PARAMETER contentLocation
+    Specifies the content source location of the Configuration Manager application.
+    UNC paths are supported.
+.PARAMETER company
+    Specifies the company responsible for supporting and maintaining the Configuration Manager application package.
+    A registry key is created locally on the device running this script.
+    This is used to track upgrade delay information.
+.PARAMETER username
+    Specifies the username of the Qualys service account.
+    Primarily used to authenticate and download the latest Qualys Cloud Agent installer.
+.PARAMETER password
+    Specifies the password of the Qualys service account.
+    Primarily used to authenticate and download the latest Qualys Cloud Agent installer.
+.PARAMETER qualysCloudAgentURL
+    Specifies the Qualys API download URL for the Qualys Cloud Agent binaries.
+.PARAMETER executableA
+    Specifies the path to the existing packaged Qualys Cloud Agent executable.
+.PARAMETER executableB
+    Specifies the path where the newly downloaded Qualys Cloud Agent executable will be saved.
+    This will replace the existing packaged Qualys Cloud Agent.
+.EXAMPLE
+    PS> QualysCloudAgentUpdater.ps1 -AppModelName ScopeId_45E2DE75-5715-4A99-800D-41D27C288969/Application_ef4d8348-18aa-4a22-a6fb-601d479adafc -ContentLocation "\\server01\sccmsource$\Applications\Qualys Cloud Agent" -company Qualys -username username -password password -qualysCloudAgentURL https:// -executableA "\\server01\sccmsource$\Applications\Qualys Cloud Agent\QualysCloudAgent.exe" -executableB "C:\Temp\QualysCloudAgent.exe"
+.INPUTS
+    Accepts a Single String for:
+    -appModelName
+    -contentLocation
+    -company
+    -username
+    -password
+    -qualysCloudAgentURL
+    -executableA
+    -executableB
+.OUTPUTS
+    This command produces no output.
+.NOTES
+    Name: QualysCloudAgentUpdater.ps1
+    Version: 1.1.0
+    Author: Aneurin Weale - VAR
+    Date Created: 06/04/2026
+    Last Updated: 18/05/2026
+.LINK
+    https://github.com/AnimatedAneurin/PowerShell/blob/PowerShell/Scripts/Qualys/SCCM/QualysCloudAgentUpdater.ps1
 #>
 
-#Requires -Version 5.1
-#Requires -Modules ConfigurationManager
-#Requires -RunAsAdministrator
+#! It is reccommended that you do not modify the code below as this is designed to be fully automated.
 
 # Define parameters
 Param (
     [Parameter(Mandatory = $true)]
+    [string]$AppModelName, # Provide the ModelName for the application that is returned from Get-CMApplication. This is the unique value that remains constant even when the application is updated and the revision count goes up
+    [Parameter(Mandatory = $true)]
     [string]$ContentLocation,
     [Parameter(Mandatory = $true)]
-    [string]$AppModelName # Provide the ModelName for the application that is returned from Get-CMApplication. This is the unique value that remains constant even when the application is updated and the revision count goes up
+    [string]$company,
+    [Parameter(Mandatory = $true)]
+    [string]$username,
+    [Parameter(Mandatory = $true)]
+    [string]$password,
+    [Parameter(Mandatory = $true)]
+    [string]$QualysCloudAgentURL, # Define download URLs (taken from Qualys documentation here: https://docs.qualys.com/en/ca/api/agents/agent_binary_download.htm)
+    [Parameter(Mandatory = $true)]
+    [string]$ExecutableA, # Packaged version
+    [Parameter(Mandatory = $true)]
+    [string]$ExecutableB # New version
 )
-
-$username = ""
-$password = ""
 
 # Build Basic Auth header
 $pair = "$username`:$password"
@@ -29,9 +97,6 @@ $headers = @{
     "Authorization"    = "Basic $encodedCreds"
     "X-Requested-With" = "curl"
 }
-
-# Define download URLs (taken from Qualys documentation here: https://docs.qualys.com/en/ca/api/agents/agent_binary_download.htm)
-$QualysCloudAgentURL = ""
 
 # Create C:\Temp directory if it doesn't exist
 If (-not (Test-Path -Path "C:\Temp")) {
@@ -56,17 +121,12 @@ Try {
 }
 
 # Config
-$company = ""
 $RegPath = "HKLM:\SOFTWARE\$company\QualysCloudAgentUpdater"
-
-# Paths to executables (UPDATE THESE)
-$ExecutablePathA = "E:\ExamplePathA\"  # Packaged version
-$ExecutablePathB = "C:\ExamplePathB\"  # New version
 
 # Executables
 $Executable = "QualysCloudAgent.exe"
 
-# executables (UPDATE THESE)
+# executables
 $ExecutableA = "$ExecutablePathA$Executable"  # Packaged version
 $ExecutableB = "$ExecutablePathB$Executable"  # New version
 
@@ -134,7 +194,7 @@ $DeferUpgrade   = [int]$DeferUpgrade
 
 #region: Logic
 
-# Case 1: New version is NOT newer → do nothing
+# Case 1: New version is NOT newer > do nothing
 if ($NewVersion -le $PackagedVersion) {
     Write-Host "No upgrade required."
     exit 0
@@ -150,7 +210,7 @@ if ($PendingUpgrade -eq 0) {
     exit 0
 }
 
-# Case 3: Already pending → decrement defer
+# Case 3: Already pending > decrement defer
 if ($PendingUpgrade -eq 1) {
 
     if ($DeferUpgrade -gt 0) {
@@ -161,7 +221,7 @@ if ($PendingUpgrade -eq 1) {
         exit 0
     }
 
-    # Case 4: Defer reached 0 → perform upgrade
+    # Case 4: Defer reached 0 > perform upgrade
     if ($DeferUpgrade -le 0) {
         Write-Host "Defer expired. Performing upgrade..."
 
@@ -248,7 +308,7 @@ if ($PendingUpgrade -eq 1) {
             Write-Verbose -Message "Error updating Configuration Manager distribution points: $_"
             Exit 1
         }
-        # 🔧 PLACE YOUR SCCM UPGRADE LOGIC HERE
+        # PLACE YOUR SCCM UPGRADE LOGIC HERE
         # Example:
         # Start-Process -FilePath "C:\Path\To\Installer.exe" -ArgumentList "/silent" -Wait
 
